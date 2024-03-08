@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebSocket Client</title>
+    <style>
+      #messages {
+        margin-top: 20px;
+        border: 1px solid #ccc;
+        padding: 10px;
+      }
+      .slot {
+        display: inline-block;
+        width: 100px;
+        height: 50px;
+        background-color: #eee;
+        border: 1px solid #ccc;
+        margin-right: 10px;
+        cursor: pointer;
+      }
+      .occupied {
+        background-color: #ffcccc;
+      }
+    </style>
+  </head>
+  <body>
+    <input type="text" id="roomId" placeholder="Enter room ID" />
+    <button onclick="joinRoom()">Join Room</button>
+
+    <div id="slots">
+      <div class="slot" id="slot1" onclick="clickSlot('slot1')">Slot 1</div>
+      <div class="slot" id="slot2" onclick="clickSlot('slot2')">Slot 2</div>
+      <div class="slot" id="slot3" onclick="clickSlot('slot3')">Slot 3</div>
+    </div>
+
+    <div id="messages"></div>
+
+    <button onclick="completeAppointment()">Complete Appointment</button>
+
+    <script>
+      const socket = new WebSocket("ws://localhost:8080");
+
+      socket.onopen = function (event) {
+        console.log("Connected to server");
+      };
+
+      socket.onmessage = function (event) {
+        const data = JSON.parse(event.data);
+        handleMessage(data);
+      };
+
+      function joinRoom() {
+        const roomId = document.getElementById("roomId").value;
+        socket.send(JSON.stringify({ action: "join", roomId }));
+      }
+
+      function clickSlot(slotId) {
+        socket.send(JSON.stringify({ action: "clickSlot", slotId }));
+      }
+
+      function completeAppointment() {
+        const slotId = prompt("Enter slot ID to free");
+        socket.send(JSON.stringify({ action: "completeAppointment", slotId }));
+      }
+
+      function handleMessage(data) {
+        const messagesDiv = document.getElementById("messages");
+        const slot = document.getElementById(data.slotId);
+        switch (data.action) {
+          case "slotOccupied":
+            slot.classList.add("occupied");
+            messagesDiv.innerHTML += `<p>Slot ${data.slotId} is occupied</p>`;
+            break;
+          case "slotFreed":
+            slot.classList.remove("occupied");
+            messagesDiv.innerHTML += `<p>Slot ${data.slotId} is now available</p>`;
+            break;
+          case "showOccupiedSlots":
+            data.slots.forEach((slotId) => {
+              const occupiedSlot = document.getElementById(slotId);
+              if (occupiedSlot) {
+                occupiedSlot.classList.add("occupied");
+              }
+            });
+            messagesDiv.innerHTML += `<p>Occupied slots: ${data.slots.join(", ")}</p>`;
+            break;
+          case "joinRoomSuccess":
+            if (data.slots.length > 0) {
+              data.slots.forEach((slotId) => {
+                const occupiedSlot = document.getElementById(slotId);
+                if (occupiedSlot) {
+                  occupiedSlot.classList.add("occupied");
+                }
+              });
+            }
+            messagesDiv.innerHTML += `<p>Joined room ${data.roomId}</p>`;
+            break;
+        }
+      }
+    </script>
+  </body>
+</html>
